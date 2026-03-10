@@ -1,0 +1,62 @@
+name: Next.js CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect package manager
+        id: pm
+        shell: bash
+        run: |
+          if [ -f yarn.lock ]; then
+            echo "manager=yarn" >> "$GITHUB_OUTPUT"
+            echo "install=yarn install --frozen-lockfile" >> "$GITHUB_OUTPUT"
+            echo "lint=yarn lint" >> "$GITHUB_OUTPUT"
+            echo "build=yarn build" >> "$GITHUB_OUTPUT"
+          elif [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+            echo "manager=npm" >> "$GITHUB_OUTPUT"
+            echo "install=npm ci" >> "$GITHUB_OUTPUT"
+            echo "lint=npm run lint" >> "$GITHUB_OUTPUT"
+            echo "build=npm run build" >> "$GITHUB_OUTPUT"
+          else
+            echo "manager=npm" >> "$GITHUB_OUTPUT"
+            echo "install=npm install" >> "$GITHUB_OUTPUT"
+            echo "lint=npm run lint" >> "$GITHUB_OUTPUT"
+            echo "build=npm run build" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup dependency cache
+        if: ${{ hashFiles('**/package-lock.json', '**/npm-shrinkwrap.json', '**/yarn.lock') != '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: ${{ steps.pm.outputs.manager }}
+          cache-dependency-path: |
+            **/package-lock.json
+            **/npm-shrinkwrap.json
+            **/yarn.lock
+
+      - name: Install dependencies
+        run: ${{ steps.pm.outputs.install }}
+
+      - name: Lint
+        run: ${{ steps.pm.outputs.lint }}
+
+      - name: Build
+        run: ${{ steps.pm.outputs.build }}
