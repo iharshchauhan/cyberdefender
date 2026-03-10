@@ -36,7 +36,12 @@ jobs:
             echo "build=npm run build" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Setup Node.js (with cache)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup dependency cache
         if: ${{ hashFiles('**/package-lock.json', '**/npm-shrinkwrap.json', '**/yarn.lock') != '' }}
         uses: actions/setup-node@v4
         with:
@@ -46,12 +51,6 @@ jobs:
             **/package-lock.json
             **/npm-shrinkwrap.json
             **/yarn.lock
-
-      - name: Setup Node.js (no cache)
-        if: ${{ hashFiles('**/package-lock.json', '**/npm-shrinkwrap.json', '**/yarn.lock') == '' }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
 
       - name: Install dependencies
         run: ${{ steps.pm.outputs.install }}
