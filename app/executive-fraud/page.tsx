@@ -1,12 +1,9 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI } from '@google/genai';
 import { Send, User, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'motion/react';
 import { useUser } from '@/lib/store';
-
-const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY });
 
 export default function ExecutiveFraud() {
   const { addXp } = useUser();
@@ -16,20 +13,9 @@ export default function ExecutiveFraud() {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [chatSession, setChatSession] = useState<any>(null);
   const [isGameOver, setIsGameOver] = useState(false);
   const [awarded, setAwarded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const chat = ai.chats.create({
-      model: 'gemini-3-flash-preview',
-      config: {
-        systemInstruction: `You are simulating a CEO trying to commit executive fraud via chat. Keep responses short (1-2 sentences). Urgently ask the user to wire $50k to a new vendor. If they agree, say exactly "[FAILED] Money sent. You were scammed." If they insist on verifying, say exactly "[PASSED] Good job following protocol."`,
-      },
-    });
-    chat.sendMessage({ message: "Start simulation. Say: Hey, are you at your desk? I need a huge favor right now." }).then(() => setChatSession(chat));
-  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -37,16 +23,23 @@ export default function ExecutiveFraud() {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || !chatSession || loading || isGameOver) return;
+    if (!input.trim() || loading || isGameOver) return;
 
     const userMsg = input.trim();
     setInput('');
-    setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', content: userMsg }]);
+    const nextMessages = [...messages, { id: Date.now().toString(), role: 'user', content: userMsg }];
+    setMessages(nextMessages);
     setLoading(true);
 
     try {
-      const response = await chatSession.sendMessage({ message: userMsg });
-      let text = response.text || '';
+      const response = await fetch('/api/executive-fraud', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: nextMessages }),
+      });
+      if (!response.ok) throw new Error('Failed to generate response');
+      const data = await response.json();
+      let text = data.text || '';
       let gameOver = false;
 
       if (text.includes('[FAILED]') || text.includes('[PASSED]')) {
@@ -54,13 +47,13 @@ export default function ExecutiveFraud() {
         if (text.includes('[PASSED]') && !awarded) {
           addXp(100);
           setAwarded(true);
-          text = text.replace('[PASSED]', '✅ Simulation Passed! +100 XP: ');
+          text = text.replace('[PASSED]', 'Simulation Passed! +100 XP: ');
         } else {
-          text = text.replace('[FAILED]', '❌ Simulation Failed: ');
+          text = text.replace('[FAILED]', 'Simulation Failed: ');
         }
       }
 
-      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', content: text }]);
+      setMessages([...nextMessages, { id: Date.now().toString(), role: 'model', content: text }]);
       if (gameOver) setIsGameOver(true);
     } catch (error) {
       console.error(error);
@@ -131,3 +124,4 @@ export default function ExecutiveFraud() {
     </div>
   );
 }
+

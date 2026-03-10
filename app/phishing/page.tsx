@@ -1,12 +1,9 @@
 'use client';
 import { useState } from 'react';
-import { GoogleGenAI, Type } from '@google/genai';
 import { ShieldAlert, ShieldCheck, Loader2, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { useUser } from '@/lib/store';
-
-const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY });
 
 const DEFAULT_SCENARIO = {
   type: 'email',
@@ -30,32 +27,13 @@ export default function PhishingMission() {
     setUserAnswer(null);
     setAwarded(false);
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Generate a short, realistic email or SMS scenario for a consumer. 
-        CRITICAL: Randomly choose between:
-        1. A clear phishing scam.
-        2. A TRICKY LEGITIMATE message that looks suspicious (e.g., weird automated alert, poorly formatted corporate email, legitimate password reset) but is actually safe.
-        
-        Return JSON with: type ('email' or 'sms'), sender, subject (if email), content, isPhishing (boolean), redFlags (array of strings if phishing, empty if safe), explanation (explain why it's safe or a scam, especially if it's a tricky legitimate one).`,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              type: { type: Type.STRING },
-              sender: { type: Type.STRING },
-              subject: { type: Type.STRING },
-              content: { type: Type.STRING },
-              isPhishing: { type: Type.BOOLEAN },
-              redFlags: { type: Type.ARRAY, items: { type: Type.STRING } },
-              explanation: { type: Type.STRING },
-            },
-            required: ['type', 'sender', 'content', 'isPhishing', 'redFlags', 'explanation'],
-          }
-        }
+      const response = await fetch('/api/scenario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'phishing' }),
       });
-      setScenario(JSON.parse(response.text || '{}'));
+      if (!response.ok) throw new Error('Failed to generate scenario');
+      setScenario(await response.json());
     } catch (e) {
       console.error(e);
     } finally {

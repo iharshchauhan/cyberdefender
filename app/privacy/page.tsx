@@ -1,12 +1,9 @@
 'use client';
 import { useState } from 'react';
-import { GoogleGenAI, Type } from '@google/genai';
 import { EyeOff, FileText, CheckCircle2, XCircle, Loader2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useUser } from '@/lib/store';
-
-const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY });
 
 const DEFAULT_SCENARIO = [
   { id: "1", name: "Customer Credit Card Numbers", description: "A database export containing full credit card numbers and CVVs.", classification: "Restricted", explanation: "Credit card data is highly regulated (PCI-DSS) and must be strictly restricted." },
@@ -32,26 +29,13 @@ export default function PrivacyAwareness() {
     setShowResults(false);
     setAwarded(false);
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Generate 5 data items for a classification exercise. Return JSON with: items (array of objects with id, name, description, classification (Public, Internal, Confidential, Restricted), explanation).`,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              items: {
-                type: Type.ARRAY, items: {
-                  type: Type.OBJECT, properties: { id: { type: Type.STRING }, name: { type: Type.STRING }, description: { type: Type.STRING }, classification: { type: Type.STRING }, explanation: { type: Type.STRING } },
-                  required: ['id', 'name', 'description', 'classification', 'explanation']
-                }
-              }
-            },
-            required: ['items'],
-          }
-        }
+      const response = await fetch('/api/scenario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'privacy' }),
       });
-      const data = JSON.parse(response.text || '{}');
+      if (!response.ok) throw new Error('Failed to generate exercise');
+      const data = await response.json();
       setItems(data.items || []);
     } catch (e) {
       console.error(e);

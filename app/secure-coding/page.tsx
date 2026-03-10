@@ -1,12 +1,9 @@
 'use client';
 import { useState } from 'react';
-import { GoogleGenAI, Type } from '@google/genai';
 import { CodeXml, Bug, ShieldCheck, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useUser } from '@/lib/store';
-
-const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY });
 
 const DEFAULT_SCENARIO = {
   title: "SQL Injection",
@@ -33,28 +30,13 @@ export default function SecureCoding() {
     setSelectedOption(null);
     setAwarded(false);
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Generate a short secure coding challenge based on OWASP Top 10. Return JSON with: title, description, language, vulnerableCode, vulnerabilityType, options (array of 3 objects with id, code, isCorrect, explanation).`,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              title: { type: Type.STRING }, description: { type: Type.STRING }, language: { type: Type.STRING },
-              vulnerableCode: { type: Type.STRING }, vulnerabilityType: { type: Type.STRING },
-              options: {
-                type: Type.ARRAY, items: {
-                  type: Type.OBJECT, properties: { id: { type: Type.STRING }, code: { type: Type.STRING }, isCorrect: { type: Type.BOOLEAN }, explanation: { type: Type.STRING } },
-                  required: ['id', 'code', 'isCorrect', 'explanation']
-                }
-              }
-            },
-            required: ['title', 'description', 'language', 'vulnerableCode', 'vulnerabilityType', 'options'],
-          }
-        }
+      const response = await fetch('/api/scenario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'secure-coding' }),
       });
-      setScenario(JSON.parse(response.text || '{}'));
+      if (!response.ok) throw new Error('Failed to generate scenario');
+      setScenario(await response.json());
     } catch (e) {
       console.error(e);
     } finally {

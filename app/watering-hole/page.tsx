@@ -1,12 +1,9 @@
 'use client';
 import { useState } from 'react';
-import { GoogleGenAI, Type } from '@google/genai';
 import { Globe, AlertTriangle, ShieldCheck, Loader2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useUser } from '@/lib/store';
-
-const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY });
 
 const DEFAULT_SCENARIO = {
   websiteName: "Bob's Local Hardware",
@@ -30,28 +27,13 @@ export default function WateringHole() {
     setUserAnswer(null);
     setAwarded(false);
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Generate a short website scenario.
-        CRITICAL: Randomly choose between:
-        1. A compromised watering hole website.
-        2. A TRICKY SAFE website that looks suspicious (e.g., outdated HTTP, weird domain for a legitimate local business, messy code) but is actually NOT malicious.
-        
-        Return JSON with: websiteName, url, description, isCompromised (boolean), indicators (array of strings if compromised, empty if safe), explanation (explain why it's compromised or safe, especially if it's a tricky safe one), htmlSnippet.`,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              websiteName: { type: Type.STRING }, url: { type: Type.STRING }, description: { type: Type.STRING },
-              isCompromised: { type: Type.BOOLEAN }, indicators: { type: Type.ARRAY, items: { type: Type.STRING } },
-              explanation: { type: Type.STRING }, htmlSnippet: { type: Type.STRING },
-            },
-            required: ['websiteName', 'url', 'description', 'isCompromised', 'indicators', 'explanation', 'htmlSnippet'],
-          }
-        }
+      const response = await fetch('/api/scenario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'watering-hole' }),
       });
-      setScenario(JSON.parse(response.text || '{}'));
+      if (!response.ok) throw new Error('Failed to generate scenario');
+      setScenario(await response.json());
     } catch (e) {
       console.error(e);
     } finally {

@@ -1,12 +1,9 @@
 'use client';
 import { useState } from 'react';
-import { GoogleGenAI, Type } from '@google/genai';
 import { Shield, Loader2, Sparkles, CheckCircle2, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useUser } from '@/lib/store';
-
-const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY });
 
 const DEFAULT_SCENARIO = {
   title: "The Found USB Drive",
@@ -31,27 +28,13 @@ export default function GeneralSecurity() {
     setSelectedOption(null);
     setAwarded(false);
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Generate a short multiple-choice cybersecurity scenario. Return JSON with: title, description, options (array of 4 objects with id, text, isCorrect, feedback).`,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              title: { type: Type.STRING }, description: { type: Type.STRING },
-              options: {
-                type: Type.ARRAY, items: {
-                  type: Type.OBJECT, properties: { id: { type: Type.STRING }, text: { type: Type.STRING }, isCorrect: { type: Type.BOOLEAN }, feedback: { type: Type.STRING } },
-                  required: ['id', 'text', 'isCorrect', 'feedback']
-                }
-              }
-            },
-            required: ['title', 'description', 'options'],
-          }
-        }
+      const response = await fetch('/api/scenario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'general' }),
       });
-      setScenario(JSON.parse(response.text || '{}'));
+      if (!response.ok) throw new Error('Failed to generate scenario');
+      setScenario(await response.json());
     } catch (e) {
       console.error(e);
     } finally {
